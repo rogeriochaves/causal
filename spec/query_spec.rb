@@ -21,4 +21,18 @@ describe Query do
     end
     expect(query).to eq true
   end
+
+  it "vaccines example" do
+    model = Model.new do |vaccination, reaction, smallpox, death|
+      vaccination.causes(reaction, effect: 0.01)
+      vaccination.causes(smallpox, effect: 0)
+      reaction.causes(death, effect: 0.01)
+      smallpox.causes(death, effect: 0.02)
+    end
+    query = Query.new(model).run do |vaccination, death|
+      vaccination.observe 1
+      death.value
+    end
+    expect(query).to eq 0.0001
+  end
 end
