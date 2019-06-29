@@ -9,7 +9,7 @@ describe Query do
   it "queries observational data" do
     query = Query.new(model).run do |foo, bar, baz|
       bar.observe 1
-      foo.value == 1 and baz.value == 1
+      foo.chance == 1 and baz.chance == 1
     end
     expect(query).to eq true
   end
@@ -17,7 +17,7 @@ describe Query do
   it "queries interventional data" do
     query = Query.new(model).run do |foo, bar, baz|
       bar.intervention! 1
-      foo.value == 0
+      foo.chance == 0
     end
     expect(query).to eq true
   end
@@ -25,14 +25,21 @@ describe Query do
   it "vaccines example" do
     model = Model.new do |vaccination, reaction, smallpox, death|
       vaccination.causes(reaction, effect: 0.01)
-      vaccination.causes(smallpox, effect: 0)
+      vaccination.causes(smallpox, effect: -1)
       reaction.causes(death, effect: 0.01)
       smallpox.causes(death, effect: 0.02)
     end
-    query = Query.new(model).run do |vaccination, death|
-      vaccination.observe 1
-      death.value
+
+    smallpox_death_chance = Query.new(model).run do |smallpox, death|
+      smallpox.observe 1
+      death.chance
     end
-    expect(query).to eq 0.0001
+    expect(smallpox_death_chance).to eq 0.02
+
+    death_chance_with_vaccine = Query.new(model).run do |vaccination, death|
+      vaccination.observe 1
+      death.chance
+    end
+    expect(death_chance_with_vaccine).to eq 0.0001
   end
 end

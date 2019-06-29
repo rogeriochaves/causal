@@ -1,11 +1,11 @@
 class Node
-  attr_reader :name, :parents, :children, :value
+  attr_reader :name, :parents, :children, :chance
 
   def initialize(name)
     @name = name
     @parents = []
     @children = []
-    @value = 0
+    @chance = 0
   end
 
   def children_nodes
@@ -28,16 +28,16 @@ class Node
     node.causes self, opts
   end
 
-  def intervention!(value)
-    @value = value
-    propagate_children_effects(value)
+  def intervention!(chance)
+    @chance = chance
+    propagate_children_effects(chance)
   end
 
-  def observe(value)
-    @value = value
-    propagate_children_effects(value)
+  def observe(chance)
+    @chance = chance
+    propagate_children_effects(chance)
     @parents.each do |parent|
-      parent[:node].observe [((1 - parent[:node].value) / value), 1].min
+      parent[:node].observe [((1 - parent[:node].chance) / parent[:effect]), 1].min
     end
   end
 
@@ -55,10 +55,11 @@ class Node
     parent_nodes.include? node
   end
 
-  def propagate_children_effects(value)
+  def propagate_children_effects(chance)
     @children.each do |child|
       return if child[:changed]
-      child[:node].intervention! [(child[:node].value + value * child[:effect]), 1].min
+      new_chance = (child[:node].chance + chance * child[:effect])
+      child[:node].intervention! [[new_chance, 1].min, 0].max
       child[:changed] = true
     end
   end

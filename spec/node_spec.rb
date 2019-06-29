@@ -22,7 +22,7 @@ describe Node do
     expect(baz.parent_nodes).to eq [foo, bar]
   end
 
-  it "changes the self value and affects all the children recursively when there is a intervention" do
+  it "changes the self chance and affects all the children recursively when there is a intervention" do
     zero = Node.new("zero")
     foo = Node.new("foo")
     bar = Node.new("bar")
@@ -34,14 +34,14 @@ describe Node do
     baz.causes(qux)
     foo.intervention! 1
 
-    expect(zero.value).to eq 0
-    expect(foo.value).to eq 1
-    expect(bar.value).to eq 1
-    expect(baz.value).to eq 1
-    expect(qux.value).to eq 1
+    expect(zero.chance).to eq 0
+    expect(foo.chance).to eq 1
+    expect(bar.chance).to eq 1
+    expect(baz.chance).to eq 1
+    expect(qux.chance).to eq 1
   end
 
-  it "changes parents and children values recursively when there is an observation" do
+  it "changes parents and children chances recursively when there is an observation" do
     foo = Node.new("foo")
     bar = Node.new("bar")
     baz = Node.new("baz")
@@ -51,10 +51,10 @@ describe Node do
     baz.causes(qux)
     baz.observe 1
 
-    expect(foo.value).to eq 1
-    expect(bar.value).to eq 1
-    expect(baz.value).to eq 1
-    expect(qux.value).to eq 1
+    expect(foo.chance).to eq 1
+    expect(bar.chance).to eq 1
+    expect(baz.chance).to eq 1
+    expect(qux.chance).to eq 1
   end
 
   it "allows different effect from different nodes from intervention" do
@@ -66,7 +66,7 @@ describe Node do
     foo.intervention! 1
     bar.intervention! 1
 
-    expect(baz.value).to eq 0.03
+    expect(baz.chance).to eq 0.03
   end
 
   it "allows different effect from different nodes and prevents duplicate propagation" do
@@ -81,15 +81,15 @@ describe Node do
     zero.observe 1
     foo.observe 1
 
-    expect(baz.value).to eq 0.03
+    expect(baz.chance).to eq 0.03
   end
 
-  it "predicts value from previous to have caused the effect" do
+  it "predicts chance from previous to have caused the effect" do
     foo = Node.new("foo")
     bar = Node.new("bar")
     foo.causes(bar, :effect => 0.01)
     bar.observe(0.01)
 
-    expect(foo.value).to eq 1
+    expect(foo.chance).to eq 1
   end
 end
