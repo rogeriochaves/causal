@@ -37,7 +37,7 @@ class Node
     @chance = chance
     propagate_children_effects(chance)
     @parents.each do |parent|
-      parent[:node].observe [((1 - parent[:node].chance) / parent[:effect]), 1].min
+      parent[:node].observe [(1 / parent[:effect]), 1].min
     end
   end
 
@@ -57,7 +57,7 @@ class Node
 
   def propagate_children_effects(chance)
     @children.each do |child|
-      return if child[:changed]
+      next if child[:changed]
       new_chance = (child[:node].chance + chance * child[:effect])
       child[:node].intervention! [[new_chance, 1].min, 0].max
       child[:changed] = true

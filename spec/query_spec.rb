@@ -42,4 +42,39 @@ describe Query do
     end
     expect(death_chance_with_vaccine).to eq 0.0001
   end
+
+  it "soldiers example" do
+    model = Model.new do |governor, general_order, soldier_a_shooting, soldier_b_shooting, prisioner_death|
+      governor.causes(general_order)
+      general_order.causes(soldier_a_shooting)
+      general_order.causes(soldier_b_shooting)
+      soldier_a_shooting.causes(prisioner_death)
+      soldier_b_shooting.causes(prisioner_death)
+    end
+
+    governor_causes_prisioner_death = Query.new(model).run do |governor, prisioner_death|
+      governor.observe 1
+      prisioner_death.chance
+    end
+    expect(governor_causes_prisioner_death).to eq 1
+
+    both_shooting_chance = Query.new(model).run do |prisioner_death, soldier_a_shooting, soldier_b_shooting|
+      prisioner_death.observe 1
+      soldier_a_shooting.chance * soldier_b_shooting.chance
+    end
+    expect(both_shooting_chance).to eq 1
+
+    soldier_b_follow_a_chance = Query.new(model).run do |soldier_a_shooting, soldier_b_shooting|
+      soldier_a_shooting.intervention! 1
+      soldier_b_shooting.chance
+    end
+    expect(soldier_b_follow_a_chance).to eq 0
+
+    prisioner_would_be_dead_anyway = Query.new(model).run do |governor, soldier_a_shooting, prisioner_death|
+      governor.observe(1)
+      soldier_a_shooting.intervention!(0)
+      prisioner_death.chance
+    end
+    expect(prisioner_would_be_dead_anyway).to eq 1
+  end
 end
