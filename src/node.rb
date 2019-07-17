@@ -29,6 +29,12 @@ class Node
   end
 
   def intervention!(chance)
+    propagate_effect(chance)
+    @interveined = true
+  end
+
+  def propagate_effect(chance)
+    return if @interveined
     @chance = chance
     propagate_children_effects(chance)
   end
@@ -59,7 +65,7 @@ class Node
     @children.each do |child|
       next if child[:changed]
       new_chance = (child[:node].chance + chance * child[:effect])
-      child[:node].intervention! [[new_chance, 1].min, 0].max
+      child[:node].propagate_effect [[new_chance, 1].min, 0].max
       child[:changed] = true
     end
   end

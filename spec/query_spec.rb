@@ -71,8 +71,8 @@ describe Query do
     expect(soldier_b_follow_a_chance).to eq 0
 
     prisioner_would_be_dead_anyway = Query.new(model).run do |governor, soldier_a_shooting, prisioner_death|
-      governor.observe(1)
       soldier_a_shooting.intervention!(0)
+      governor.observe(1)
       prisioner_death.chance
     end
     expect(prisioner_would_be_dead_anyway).to eq 1

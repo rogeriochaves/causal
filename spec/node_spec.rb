@@ -92,4 +92,14 @@ describe Node do
 
     expect(foo.chance).to eq 1
   end
+
+  it "does not change the value after intervention" do
+    foo = Node.new("foo")
+    bar = Node.new("bar")
+    foo.causes(bar)
+    bar.intervention! 0
+    foo.observe 1
+
+    expect(bar.chance).to eq 0
+  end
 end
