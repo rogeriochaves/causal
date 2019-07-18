@@ -1,36 +1,19 @@
-const drag = simulation => {
-  function dragstarted(d) {
-    if (!d3.event.active) simulation.alphaTarget(0.3).restart();
-    d.fx = d.x;
-    d.fy = d.y;
-  }
-
-  function dragged(d) {
-    d.fx = d3.event.x;
-    d.fy = d3.event.y;
-  }
-
-  function dragended(d) {
-    if (!d3.event.active) simulation.alphaTarget(0);
-    d.fx = null;
-    d.fy = null;
-  }
-
-  return d3
-    .drag()
-    .on("start", dragstarted)
-    .on("drag", dragged)
-    .on("end", dragended);
-};
-
 const app = new Vue({
   el: "#app",
   data: {
     nodes: [
-      { name: "foo", links: [{ target: "bar", effect: 1 }] },
-      { name: "bar", links: [] }
-    ],
-    svg: null
+      {
+        name: "Genes",
+        prior: 0.01,
+        links: [{ target: "Disease", effect: 0.05 }]
+      },
+      {
+        name: "Disease",
+        prior: 0.0014,
+        links: [{ target: "Test", effect: 0.73 }]
+      },
+      { name: "Test", prior: 0.121, links: [] }
+    ]
   },
   mounted() {
     this.draw();
@@ -49,8 +32,26 @@ const app = new Vue({
       this.newNodeName = "";
     },
     addLink(origin) {
-      const node = this.nodes.find(x => x.name === origin);
+      const node = this.findNode(origin);
       node.links = [...node.links, { target: "", effect: 1 }];
+    },
+    findNode(name) {
+      return this.nodes.find(x => x.name === name);
+    },
+    findLink(origin, target) {
+      const originNode = this.findNode(origin);
+      return originNode.links.find(x => x.target === target);
+    },
+    bayes(A, B) {
+      const nodeA = this.findNode(A);
+      const nodeB = this.findNode(B);
+      if (!nodeA || !nodeB) return;
+
+      P_A = nodeA.prior;
+      P_B = nodeB.prior;
+      P_B_given_A = this.findLink(A, B).effect;
+
+      return ((P_B_given_A * P_A) / P_B).toFixed(4);
     },
     draw() {
       const names = this.nodes.map(x => x.name);
@@ -159,3 +160,28 @@ const app = new Vue({
     }
   }
 });
+
+function drag(simulation) {
+  function dragstarted(d) {
+    if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+    d.fx = d.x;
+    d.fy = d.y;
+  }
+
+  function dragged(d) {
+    d.fx = d3.event.x;
+    d.fy = d3.event.y;
+  }
+
+  function dragended(d) {
+    if (!d3.event.active) simulation.alphaTarget(0);
+    d.fx = null;
+    d.fy = null;
+  }
+
+  return d3
+    .drag()
+    .on("start", dragstarted)
+    .on("drag", dragged)
+    .on("end", dragended);
+}
