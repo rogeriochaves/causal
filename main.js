@@ -86,7 +86,7 @@ const app = new Vue({
         .forceSimulation(nodes)
         .force("link", d3.forceLink(links).id((d, i) => i))
         .force("charge", d3.forceManyBody()) //.strength(-3000))
-        .force("collision", d3.forceCollide().radius(d => 50))
+        .force("collision", d3.forceCollide().radius(d => 60))
         .force("center", d3.forceCenter(width / 2, height / 2));
 
       const link = svg
@@ -96,7 +96,27 @@ const app = new Vue({
         .data(links)
         .join("line")
         .attr("stroke-width", d => Math.abs(d.effect) * 5)
-        .attr("stroke", d => (d.effect > 0 ? "#6C6" : "#F99"));
+        .attr("stroke", d => (d.effect > 0 ? "#6C6" : "#F99"))
+        .attr("marker-end", d =>
+          d.effect > 0 ? "url(#green-triangle)" : "url(#red-triangle)"
+        );
+
+      const createTriangle = (id, color) =>
+        svg
+          .append("svg:defs")
+          .append("svg:marker")
+          .attr("id", id)
+          .attr("refX", 46)
+          .attr("refY", 9)
+          .attr("markerWidth", 19.5)
+          .attr("markerHeight", 19.5)
+          .attr("orient", "auto")
+          .attr("markerUnits", "userSpaceOnUse")
+          .append("path")
+          .attr("d", "M3,3 L3,16.5 L15,9 L3,3")
+          .style("fill", color);
+      createTriangle("green-triangle", "#6C6");
+      createTriangle("red-triangle", "#F99");
 
       const scale = d3.scaleOrdinal(d3.schemeCategory10);
       const color = (d, i) => scale(i);
