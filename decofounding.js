@@ -1,54 +1,3 @@
-const sumArrays = (a, b) =>
-  a.map(function(num, idx) {
-    return num + b[idx];
-  });
-
-const divArray = (a, n) => a.map(x => x / n);
-
-const multiplyArray = (a, n) => a.map(x => x * n);
-
-const parseGraph = str => {
-  let nodes = [];
-  let colors = [[255, 0, 0], [0, 200, 200], [200, 200, 0], [200, 0, 200]];
-  let elems = str.split(" ");
-  let colorsUsed = 0;
-  let createNode = elem => {
-    let color;
-    if (elem === "X") {
-      color = [0, 200, 0];
-    } else if (elem === "Y") {
-      color = [100, 100, 100];
-    } else {
-      color = colors[colorsUsed % colors.length];
-      colorsUsed++;
-    }
-    const node = {
-      name: elem,
-      color: color,
-      links: [],
-      blocked: false,
-      final: elem === "Y"
-    };
-    nodes.push(node);
-    return node;
-  };
-  let index = 0;
-  for (let elem of elems) {
-    if (elem === "->") {
-      let node = nodes.find(x => x.name === elems[index - 1]);
-      node.links.push({ target: elems[index + 1] });
-    } else if (elem === "<-") {
-      let node = nodes.find(x => x.name === elems[index + 1]);
-      if (!node) node = createNode(elems[index + 1]);
-      node.links.push({ target: elems[index - 1] });
-    } else if (!nodes.find(x => x.name === elem)) {
-      createNode(elem);
-    }
-    index++;
-  }
-  return nodes;
-};
-
 const app = new Vue({
   el: "#app",
   data: {
@@ -56,8 +5,9 @@ const app = new Vue({
     // nodes: parseGraph("X <- Z -> Y <- X")
     // nodes: parseGraph("X -> Z <- Y <- X")
     // nodes: parseGraph("X <- Z -> Y <- X -> D <- Z")
-    nodes: parseGraph("X <- A -> C <- B -> Y <- X")
+    // nodes: parseGraph("X <- A -> C <- B -> Y <- X")
     // nodes: parseGraph("X <- A -> C <- B -> Y <- X <- C")
+    nodes: parseGraph("E <- X <- A -> B -> C <- B <- D -> E -> Y")
   },
   mounted() {
     this.draw();
@@ -78,53 +28,27 @@ const app = new Vue({
       const originNode = this.findNode(origin);
       return originNode.links.find(x => x.target === target);
     },
-    findLinkedNodes(target) {
+    findParentNodes(target) {
       return this.nodes.filter(x => x.links.some(y => y.target === target));
     },
-    calculateColors(nodes) {
-      for (let node of nodes) {
-        let allLinkedNodes = this.findLinkedNodes(node.name);
-        this.calculateColors(allLinkedNodes);
-        let colors = node.final ? [] : [node.color];
-        for (let linkedNode of allLinkedNodes) {
-          if (linkedNode.blocked) continue;
-          colors.push(linkedNode.calculatedColor);
-        }
-        console.log(node.name, "colors", colors);
-
-        let total = colors.length;
-        if (node.final) {
-          const controlledNodesColors = this.nodes
-            .filter(x => x.blocked)
-            .filter(x => !allLinkedNodes.includes(x))
-            .map(x => multiplyArray(x.calculatedColor, -1));
-          colors = colors.concat(controlledNodesColors);
-          total -= 1;
-        }
-
-        // if (colors == []) colors = [node.color];
-        const color = divArray(
-          colors.reduce(sumArrays, [0, 0, 0]),
-          Math.max(total, 1)
-        );
-        node.calculatedColor = color;
-      }
+    calculateEffects(nodes) {
+      calculateEffects(nodes);
     },
     toRGB(color) {
       return `rgb(${color.join(",")})`;
     },
     draw() {
       const names = this.nodes.map(x => x.name);
-      this.calculateColors(this.nodes);
+      this.calculateEffects(this.nodes);
 
       const links = this.nodes
         .flatMap((node, index) =>
-          node.blocked
+          node.controlled
             ? []
             : node.links.map(link => ({
                 source: index,
                 target: names.indexOf(link.target),
-                calculatedColor: node.calculatedColor
+                color: node.color
               }))
         )
         .filter(l => l.target >= 0);
@@ -161,7 +85,7 @@ const app = new Vue({
         .data(links)
         .join("line")
         .attr("stroke-width", 5)
-        .attr("stroke", d => this.toRGB(d.calculatedColor))
+        .attr("stroke", d => this.toRGB(d.color))
         .attr("marker-end", d => "url(#black-triangle)");
 
       const createTriangle = (id, color) =>
@@ -191,14 +115,14 @@ const app = new Vue({
         .data(nodes)
         .join("g")
         .on("click", d => {
-          d.blocked = !d.blocked;
+          d.controlled = !d.controlled;
         })
         .call(drag(simulation));
 
       node
         .append("circle")
         .attr("r", 30)
-        .attr("fill", d => this.toRGB(d.calculatedColor));
+        .attr("fill", d => this.toRGB(d.calculatedColor || d.color));
 
       node
         .append("text")
