@@ -7,6 +7,7 @@ const app = new Vue({
     // nodes: parseGraph("X <- Z -> Y <- X -> D <- Z")
     // nodes: parseGraph("X <- A -> C <- B -> Y <- X")
     // nodes: parseGraph("X <- A -> C <- B -> Y <- X <- C")
+    nodes: parseGraph("E <- X <- A -> B -> C <- B <- D -> E -> Y")
   },
   mounted() {
     this.draw();
@@ -31,40 +32,7 @@ const app = new Vue({
       return this.nodes.filter(x => x.links.some(y => y.target === target));
     },
     calculateEffects(nodes) {
-      for (let node of nodes) {
-        let allParentNodes = this.findParentNodes(node.name);
-        this.calculateEffects(allParentNodes);
-
-        let effects = [];
-        for (let parent of allParentNodes) {
-          if (parent.blocked) continue;
-          effects.push(parent.name);
-          effects = effects.concat(parent.effects);
-        }
-        node.effects = effects;
-
-        if (node.final) {
-          const controlledEffects = this.nodes
-            .filter(x => x.blocked)
-            .flatMap(x => [x.name].concat(x.effects));
-
-          const xEffects = ["X"].concat(this.findNode("X").effects);
-          const yEffects = removeFromArray(node.effects, controlledEffects);
-          const additionalEffects = removeFromArray(yEffects, xEffects);
-          const missingEffects = removeFromArray(xEffects, yEffects);
-
-          const finalColors = [this.findNode("X").color]
-            .concat(additionalEffects.map(x => this.findNode(x).color))
-            .concat(
-              multiplyArray(missingEffects.map(x => this.findNode(x).color), -1)
-            );
-          const color = divArray(
-            finalColors.reduce(sumArrays, [0, 0, 0]),
-            finalColors.length
-          );
-          node.calculatedColor = color;
-        }
-      }
+      calculateEffects(nodes);
     },
     toRGB(color) {
       return `rgb(${color.join(",")})`;
@@ -75,7 +43,7 @@ const app = new Vue({
 
       const links = this.nodes
         .flatMap((node, index) =>
-          node.blocked
+          node.controlled
             ? []
             : node.links.map(link => ({
                 source: index,
@@ -147,7 +115,7 @@ const app = new Vue({
         .data(nodes)
         .join("g")
         .on("click", d => {
-          d.blocked = !d.blocked;
+          d.controlled = !d.controlled;
         })
         .call(drag(simulation));
 

@@ -66,75 +66,96 @@ const findParentNodes = (nodes, target) =>
   nodes.filter(x => x.links.some(y => y.target === target));
 
 const calculateEffects = nodes => {
-  for (let node of nodes) {
-    let allParentNodes = findParentNodes(nodes, node.name);
-    calculateEffects(allParentNodes);
+  nodes = [...nodes];
+  nodes.forEach(n => {
+    n.effects = [];
+    n.checked = false;
+  });
+  nodes = calculateOriginalEffects(nodes, nodes);
 
+  const controlled = nodes
+    .filter(x => x.controlled)
+    .flatMap(x => [x.name, ...x.effects]);
+  nodes = calculateControlledEffects(controlled, nodes, [findNode(nodes, "Y")]);
+  nodes = calculateControlledEffects(controlled, nodes, [findNode(nodes, "X")]);
+
+  const confounders = findCounfounders(nodes);
+  addYColor(nodes, confounders);
+
+  return nodes;
+};
+
+const calculateOriginalEffects = (nodes, nextNodes) => {
+  for (let node of nextNodes) {
+    let parents = findParentNodes(nodes, node.name);
+    calculateOriginalEffects(nodes, parents);
     let effects = [];
-    for (let parent of allParentNodes) {
-      if (parent.controlled) continue;
+    for (let parent of parents) {
       effects.push(parent.name);
       effects = effects.concat(parent.effects);
     }
     node.effects = effects;
-
-    if (node.final) {
-      const controlledEffects = nodes
-        .filter(x => x.controlled)
-        .flatMap(x => [x.name].concat(x.effects));
-
-      const xEffects = ["X"].concat(findNode(nodes, "X").effects);
-      const yEffects = removeFromArray(
-        node.effects.filter(x => xEffects.includes(x)),
-        controlledEffects
-      );
-      const additionalEffects = removeFromArray(yEffects, xEffects);
-      const missingEffects = removeFromArray(xEffects, yEffects);
-
-      const finalColors = [findNode(nodes, "X").color]
-        .concat(additionalEffects.map(x => findNode(nodes, x).color))
-        .concat(
-          multiplyArray(missingEffects.map(x => findNode(nodes, x).color), -1)
-        );
-      const color = divArray(
-        finalColors.reduce(sumArrays, [0, 0, 0]),
-        finalColors.length
-      );
-      node.calculatedColor = color;
-      nodes.confounders = additionalEffects.concat(missingEffects);
-    }
   }
+  return nodes;
+};
+
+const calculateControlledEffects = (controlled, nodes, nextNodes) => {
+  for (let node of nextNodes) {
+    if (node.checked) return nodes;
+    node.checked = true;
+    let parents = nodes.filter(
+      x => x.links.some(y => y.target === node.name) && !x.controlled
+    );
+    let children = node.links.map(x => x.target);
+    let controlledChildren = nodes.filter(
+      x => children.includes(x.name) && controlled.includes(x.name)
+    );
+    let affectingNodes = parents.concat(controlledChildren);
+    calculateControlledEffects(controlled, nodes, affectingNodes);
+
+    let effects = [];
+    for (let n of affectingNodes) {
+      effects.push(n.name);
+      effects = effects.concat(n.effects);
+      effects = effects.filter(x => x !== node.name);
+    }
+    node.effects = effects;
+  }
+  return nodes;
 };
 
 const findCounfounders = nodes => {
-  let pathsFromX = findPathsFromXtoY(nodes)();
-  let confounders = pathsFromX.flatMap(x =>
-    x.filter(y => y !== "X" && y !== "Y")
+  const x = findNode(nodes, "X");
+  const y = findNode(nodes, "Y");
+  const additionalEffects = removeFromArray(y.effects, x.effects);
+  const confounders = additionalEffects.filter(c => x.effects.includes(c));
+  const jointBiases = removeFromArray(x.effects, y.effects);
+
+  return confounders.concat(jointBiases);
+};
+
+const addYColor = (nodes, confounders) => {
+  const finalColors = [findNode(nodes, "X").color].concat(
+    confounders.map(x => findNode(nodes, x).color)
   );
-  return confounders;
+  const color = divArray(
+    finalColors.reduce(sumArrays, [0, 0, 0]),
+    finalColors.length
+  );
+  const y = findNode(nodes, "Y");
+  y.calculatedColor = color;
 };
 
-const findPathsFromXtoY = (nodes, previous = []) => node => {
-  if (!node) node = findNode(nodes, "X");
-  // console.log("node.name", node.name);
-  if (node.name === "Y") return [[...previous, "Y"]];
-
-  let parents = findParentNodes(nodes, node.name);
-  // console.log("parentsControlled", parentsControlled);
-  let children = node.links.map(x => findNode(nodes, x.target));
-  let nextSteps = parents
-    .concat(children)
-    .filter(x => !previous.includes(x.name));
-  // console.log("nextSteps", nextSteps.map(x => x.name));
-
-  return nextSteps.flatMap(findPathsFromXtoY(nodes, [...previous, node.name]));
-};
+// Tests
 
 let eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-let assertConfounders = (dag, expected) => {
+let assertConfounders = (dag, controlled, expected) => {
   let sample = parseGraph(dag);
+  controlled.forEach(elem => {
+    findNode(sample, elem).controlled = true;
+  });
+  sample = calculateEffects(sample);
   let confounders = findCounfounders(sample);
-  // calculateEffects(sample);
 
   console.assert(
     eq(confounders, expected),
@@ -143,38 +164,131 @@ let assertConfounders = (dag, expected) => {
     )} for ${dag}, actual: ${JSON.stringify(confounders)}`
   );
 };
-let assertPaths = (dag, expected) => {
+let assertEffects = (dag, opts) => {
   let sample = parseGraph(dag);
-  let paths = findPathsFromXtoY(sample)();
+  if (opts.control) {
+    for (let controlledNode of opts.control) {
+      findNode(sample, controlledNode).controlled = true;
+    }
+  }
+  sample = calculateEffects(sample);
+  let node = findNode(sample, opts.effectsFor);
 
   console.assert(
-    eq(paths, expected),
-    `paths expected ${JSON.stringify(
-      expected
-    )} for ${dag}, actual: ${JSON.stringify(paths)}`
+    eq(node.effects, opts.expect),
+    `effects expected ${JSON.stringify(opts.expect)} for ${
+      opts.effectsFor
+    } in ${dag} controlling for ${JSON.stringify(
+      opts.control
+    )}, actual: ${JSON.stringify(node.effects)}`
   );
 };
 
-assertPaths("X -> Y", [["X", "Y"]]);
-assertPaths("X <- Z -> Y <- X", [["X", "Z", "Y"], ["X", "Y"]]);
-assertPaths("X <- Z <- A -> B -> Y <- X", [
-  ["X", "Z", "A", "B", "Y"],
-  ["X", "Y"]
-]);
-assertPaths("X <- A -> C <- B -> Y <- X <- C", [
-  ["X", "A", "C", "B", "Y"],
-  ["X", "C", "B", "Y"],
-  ["X", "Y"]
-]);
-assertPaths("E <- X <- A <- B -> C <- B <- D -> E -> Y", [
-  ["X", "A", "B", "D", "E", "Y"],
-  ["X", "E", "Y"]
-]);
+assertEffects("X <- Z -> Y <- X", { effectsFor: "X", expect: ["Z"] });
+assertEffects("X <- Z -> Y <- X", { effectsFor: "Y", expect: ["X", "Z", "Z"] });
+assertEffects("X <- Z -> Y <- X", { effectsFor: "Z", expect: [] });
+assertEffects("X -> Z <- Y <- X", { effectsFor: "Y", expect: ["X"] });
+assertEffects("X <- A <- Z -> B -> Y <- X", {
+  effectsFor: "X",
+  expect: ["A", "Z"]
+});
+assertEffects("X <- A <- Z -> B -> Y <- X", {
+  effectsFor: "Y",
+  expect: ["X", "A", "Z", "B", "Z"]
+});
+assertEffects("X <- Z -> Y <- X", {
+  control: ["Z"],
+  effectsFor: "X",
+  expect: []
+});
+assertEffects("X <- Z -> Y <- X", {
+  control: ["Z"],
+  effectsFor: "Y",
+  expect: ["X"]
+});
+assertEffects("X -> Z <- Y <- X", {
+  control: ["Z"],
+  effectsFor: "Y",
+  expect: ["X", "Z", "Z", "X", "X"]
+});
+assertEffects("X <- A <- Z -> B -> Y <- X", {
+  control: ["Z"],
+  effectsFor: "X",
+  expect: ["A"]
+});
+assertEffects("X <- A <- Z -> B -> Y <- X", {
+  control: ["Z"],
+  effectsFor: "Y",
+  expect: ["X", "A", "B"]
+});
+assertEffects("X <- Z -> Y <- X -> D <- Z", {
+  effectsFor: "Y",
+  expect: ["X", "Z", "Z"]
+});
+assertEffects("X <- Z -> Y <- X -> D <- Z", {
+  control: ["Z"],
+  effectsFor: "Y",
+  expect: ["X"]
+});
+assertEffects("X <- Z -> Y <- X -> D <- Z", {
+  control: ["D"],
+  effectsFor: "Y",
+  expect: ["X", "Z", "D", "D", "Z", "Z", "Z", "X", "D", "X"]
+});
+// // M bias
+assertEffects("X <- A -> C <- B -> Y <- X", {
+  effectsFor: "Y",
+  expect: ["X", "A", "B"]
+});
+assertEffects("X <- A -> C <- B -> Y <- X", {
+  control: ["A", "C"],
+  effectsFor: "Y",
+  expect: ["X", "B", "C"]
+});
+assertEffects("X <- A -> C <- B -> Y <- X", {
+  control: ["A", "C"],
+  effectsFor: "X",
+  expect: []
+});
+assertEffects("X <- A -> C <- B -> Y <- X", {
+  control: ["B", "C"],
+  effectsFor: "Y",
+  expect: ["X", "A", "C"]
+});
+assertEffects("X <- A -> C <- B -> Y <- X", {
+  control: ["A", "B"],
+  effectsFor: "Y",
+  expect: ["X"]
+});
+assertEffects("X <- A -> C <- B -> Y <- X", {
+  control: ["C"],
+  effectsFor: "Y",
+  expect: ["X", "A", "C", "B", "B", "C", "A"]
+});
+assertEffects("E <- X <- A -> B -> C <- B <- D -> E -> Y", {
+  effectsFor: "Y",
+  expect: ["E", "X", "A", "D"]
+});
+assertEffects("E <- X <- A -> B -> C <- B <- D -> E -> Y", {
+  control: ["C", "A"],
+  effectsFor: "Y",
+  expect: ["E", "X", "D", "B", "C", "A"]
+});
 
-// assertConfounders("X -> Y", []);
-// assertConfounders("X <- Z -> Y <- X", ["Z"]);
-// assertConfounders("X <- Z <- A -> B -> Y <- X", ["Z", "D"]);
-// assertConfounders("X -> Z <- Y <- X", []);
-// assertConfounders("X <- Z -> Y <- X -> D <- Z", ["Z"]);
-// assertConfounders("X <- A -> C <- B -> Y <- X", []);
-// assertConfounders("X <- A -> C <- B -> Y <- X <- C", ["C"]);
+assertConfounders("X -> Y", [], []);
+assertConfounders("X <- Z -> Y <- X", [], ["Z"]);
+assertConfounders("X <- Z -> Y <- X", ["Z"], []);
+assertConfounders("X -> Z <- Y <- X", [], []);
+assertConfounders("X <- A <- Z -> B -> Y <- X", ["Z"], []);
+assertConfounders("X <- Z -> Y <- X -> D <- Z", ["Z"], []);
+assertConfounders("X <- A -> C <- B -> Y <- X", [], []);
+assertConfounders("X <- A -> C <- B -> Y <- X", ["C", "A"], []);
+assertConfounders("X <- A -> C <- B -> Y <- X", ["C", "B"], []);
+assertConfounders("X <- A -> C <- B -> Y <- X <- C", ["B"], []);
+assertConfounders("X <- A -> C <- B -> Y <- X <- C", ["C", "A"], []);
+assertConfounders("X <- A -> C <- B -> Y <- X <- C", ["C", "B"], []);
+assertConfounders("E <- X <- A -> B -> C <- B <- D -> E -> Y", [], []);
+assertConfounders("E <- X <- A -> B -> C <- B <- D -> E -> Y", ["C", "A"], []);
+assertConfounders("E <- X <- A -> B -> C <- B <- D -> E -> Y", ["C", "D"], []);
+assertConfounders("E <- X <- A -> B -> C <- B <- D -> E -> Y", ["B", "A"], []);
+assertConfounders("E <- X <- A -> B -> C <- B <- D -> E -> Y", ["B", "D"], []);
