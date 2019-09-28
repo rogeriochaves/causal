@@ -159,7 +159,7 @@ let assertConfounders = (dag, controlled, expected) => {
 
   console.assert(
     eq(confounders, expected),
-    `cofounders expected ${JSON.stringify(
+    `confounders expected ${JSON.stringify(
       expected
     )} for ${dag}, actual: ${JSON.stringify(confounders)}`
   );
