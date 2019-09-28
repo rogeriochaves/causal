@@ -70,8 +70,12 @@
           <p>
             Welcome to the Deconfounding Game. Your goal is to have all the
             causal paths between X and Y deconfounded, you will know you reached
-            this goal when Y is green like X. You can click the other nodes to
-            control from them, to try to remove the confounding effect.
+            this goal when Y is green like X.
+          </p>
+          <p>
+            You can click the other nodes to control from them, to try to remove
+            the confounding effect. Note that sometimes you don't have to do
+            anything, the model is already deconfounded
           </p>
           <p>Press Check when you are done</p>
         </div>
@@ -88,6 +92,9 @@
             <button v-on:click="create">Create</button>
           </div>
         </div>
+        <label style="display:block; padding-bottom: 10px;">
+          <input type="checkbox" v-model="showColors" /> Show Colors
+        </label>
         <div v-if="state === 'tried'">
           <p>Sorry, there are still some confounders, please try again</p>
         </div>

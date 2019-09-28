@@ -14,7 +14,8 @@ const app = new Vue({
     ],
     state: "none", // none | tried | done
     nodes: [],
-    customGame: "X <- Z -> Y <- X"
+    customGame: "X <- Z -> Y <- X",
+    showColors: true
   },
   mounted() {
     this.nodes = parseGraph(this.games[0]);
@@ -26,6 +27,11 @@ const app = new Vue({
         this.draw();
       },
       deep: true
+    },
+    showColors: {
+      handler() {
+        this.draw();
+      }
     }
   },
   computed: {
@@ -81,7 +87,10 @@ const app = new Vue({
       calculateEffects(nodes);
     },
     toRGB(color) {
-      return `rgb(${color.join(",")})`;
+      if (this.showColors) {
+        return `rgb(${color.join(",")})`;
+      }
+      return `rgb(150, 150, 150)`;
     },
     draw() {
       const names = this.nodes.map(x => x.name);
