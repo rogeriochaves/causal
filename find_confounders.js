@@ -73,6 +73,7 @@ const findParentNodes = (nodes, target) =>
   nodes.filter(x => x.links.some(y => y.target === target));
 
 const calculateEffects = nodes => {
+  if (nodes.length === 0) return [];
   nodes = [...nodes];
   nodes.forEach(n => {
     n.effects = [];

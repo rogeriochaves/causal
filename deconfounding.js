@@ -1,15 +1,23 @@
 const app = new Vue({
   el: "#app",
   data: {
-    // nodes: parseGraph("X -> Y")
-    // nodes: parseGraph("X <- Z -> Y <- X")
-    // nodes: parseGraph("X -> Z <- Y <- X")
-    // nodes: parseGraph("X <- Z -> Y <- X -> D <- Z")
-    nodes: parseGraph("X <- A -> C <- B -> Y <- X")
-    // nodes: parseGraph("X <- A -> C <- B -> Y <- X <- C")
-    // nodes: parseGraph("E <- X <- A -> B -> C <- B <- D -> E -> Y")
+    game: 0,
+    games: [
+      "X <- Z -> Y <- X",
+      "X -> Z <- Y <- X",
+      "X -> A -> B <- A -> Y",
+      "E <- X <- A -> B -> C <- B <- D -> E -> Y",
+      "X <- Z -> Y <- X -> D <- Z",
+      "X <- A -> C <- B -> Y <- X",
+      "X <- A -> C <- B -> Y <- X <- C",
+      "D -> A -> X -> Y <- E <- C -> B -> X <- E -> X <- B <- A <- D -> C -> Y <- F -> X <- B <- C <- F -> Y <- G -> X"
+    ],
+    state: "none", // none | tried | done
+    nodes: [],
+    customGame: "X <- Z -> Y <- X"
   },
   mounted() {
+    this.nodes = parseGraph(this.games[0]);
     this.draw();
   },
   watch: {
@@ -20,7 +28,45 @@ const app = new Vue({
       deep: true
     }
   },
+  computed: {
+    gameOver() {
+      return this.game >= this.games.length;
+    }
+  },
   methods: {
+    check() {
+      if (findCounfounders(this.nodes).length === 0) {
+        this.state = "done";
+      } else {
+        this.state = "tried";
+      }
+    },
+    next() {
+      this.game += 1;
+      if (this.gameOver) {
+        this.nodes = [];
+      } else {
+        this.nodes = parseGraph(this.games[this.game]);
+      }
+      this.state = "none";
+    },
+    create() {
+      this.nodes = parseGraph(this.customGame);
+      this.state = "none";
+    },
+    random() {
+      const amountNodes = Math.round(Math.random() * 6);
+      let nodes = ["A", "B", "C", "D", "E", "F"];
+      nodes.splice(0, amountNodes);
+      let game = "X";
+      for (let n of nodes) {
+        let direction = Math.random() > 0.5 ? "<-" : "->";
+        game += ` ${direction} ${n}`;
+      }
+      let direction = Math.random() > 0.5 ? "<-" : "->";
+      game += ` ${direction} Y <- X`;
+      this.customGame = game;
+    },
     findNode(name) {
       return this.nodes.find(x => x.name === name);
     },
