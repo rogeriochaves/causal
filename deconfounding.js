@@ -5,9 +5,9 @@ const app = new Vue({
     // nodes: parseGraph("X <- Z -> Y <- X")
     // nodes: parseGraph("X -> Z <- Y <- X")
     // nodes: parseGraph("X <- Z -> Y <- X -> D <- Z")
-    // nodes: parseGraph("X <- A -> C <- B -> Y <- X")
+    nodes: parseGraph("X <- A -> C <- B -> Y <- X")
     // nodes: parseGraph("X <- A -> C <- B -> Y <- X <- C")
-    nodes: parseGraph("E <- X <- A -> B -> C <- B <- D -> E -> Y")
+    // nodes: parseGraph("E <- X <- A -> B -> C <- B <- D -> E -> Y")
   },
   mounted() {
     this.draw();
@@ -41,18 +41,29 @@ const app = new Vue({
       const names = this.nodes.map(x => x.name);
       this.calculateEffects(this.nodes);
 
-      const links = this.nodes
-        .flatMap((node, index) =>
-          node.controlled
-            ? []
-            : node.links.map(link => ({
-                source: index,
-                target: names.indexOf(link.target),
-                color: node.color
-              }))
-        )
-        .filter(l => l.target >= 0);
       const nodes = this.nodes;
+      const controlled = findControlled(nodes);
+      const links = nodes
+        .flatMap((node, index) => {
+          if (node.controlled) {
+            return [];
+          } else {
+            return node.links.map(link =>
+              controlled.includes(link.target)
+                ? {
+                    source: names.indexOf(link.target),
+                    target: index,
+                    color: findNode(nodes, link.target).color
+                  }
+                : {
+                    source: index,
+                    target: names.indexOf(link.target),
+                    color: node.color
+                  }
+            );
+          }
+        })
+        .filter(l => l.target >= 0);
 
       d3.select("#graph")
         .selectAll("*")

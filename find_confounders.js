@@ -20,7 +20,14 @@ const removeFromArray = (a, b) => {
 
 const parseGraph = str => {
   let nodes = [];
-  let colors = [[255, 0, 0], [0, 200, 200], [200, 200, 0], [200, 0, 200]];
+  let colors = [
+    [255, 0, 0],
+    [255, 130, 0],
+    [255, 190, 0],
+    [0, 153, 255],
+    [100, 100, 255],
+    [0, 0, 0]
+  ];
   let elems = str.split(" ");
   let colorsUsed = 0;
   let createNode = elem => {
@@ -73,9 +80,7 @@ const calculateEffects = nodes => {
   });
   nodes = calculateOriginalEffects(nodes, nodes);
 
-  const controlled = nodes
-    .filter(x => x.controlled)
-    .flatMap(x => [x.name, ...x.effects]);
+  const controlled = findControlled(nodes);
   nodes = calculateControlledEffects(controlled, nodes, [findNode(nodes, "Y")]);
   nodes = calculateControlledEffects(controlled, nodes, [findNode(nodes, "X")]);
 
@@ -84,6 +89,9 @@ const calculateEffects = nodes => {
 
   return nodes;
 };
+
+const findControlled = nodes =>
+  nodes.filter(x => x.controlled).flatMap(x => [x.name, ...x.effects]);
 
 const calculateOriginalEffects = (nodes, nextNodes) => {
   for (let node of nextNodes) {
@@ -159,7 +167,7 @@ let assertConfounders = (dag, controlled, expected) => {
 
   console.assert(
     eq(confounders, expected),
-    `confounders expected ${JSON.stringify(
+    `cofounders expected ${JSON.stringify(
       expected
     )} for ${dag}, actual: ${JSON.stringify(confounders)}`
   );
